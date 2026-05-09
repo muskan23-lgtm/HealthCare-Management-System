@@ -23,7 +23,12 @@ function Invoke-SystemPython {
 }
 
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    throw "npm was not found. Install Node.js LTS and rerun this script."
+    $NodeDir = "C:\Program Files\nodejs"
+    if (Test-Path (Join-Path $NodeDir "npm.cmd")) {
+        $env:Path = "$NodeDir;$env:Path"
+    } else {
+        throw "npm was not found. Install Node.js LTS and rerun this script."
+    }
 }
 
 Write-Host "Preparing backend..."
@@ -57,7 +62,7 @@ Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
     "-Command",
-    "Set-Location '$FrontendDir'; `$env:VITE_API_BASE_URL='http://127.0.0.1:8000/api'; npm run dev -- --host 127.0.0.1"
+    "`$env:Path='C:\Program Files\nodejs;' + `$env:Path; Set-Location '$FrontendDir'; `$env:VITE_API_BASE_URL='http://127.0.0.1:8000/api'; npm run dev -- --host 127.0.0.1"
 )
 
 Set-Location $Root
