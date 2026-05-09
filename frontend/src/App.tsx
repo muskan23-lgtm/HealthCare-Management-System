@@ -6,6 +6,8 @@ import { AppRoutes } from './routes';
 import { Header } from './components/layout/Header';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
+import { Input } from './components/ui/Input';
+import { Select } from './components/ui/Select';
 import { login, register, restoreUserSession, logout as authLogout } from './utils/auth';
 import { Patient, Doctor, LoginFormData, RegisterFormData } from './types';
 import { 
@@ -27,11 +29,36 @@ import {
   Award
 } from 'lucide-react';
 
+interface FeedbackEntry {
+  id: string;
+  name: string;
+  role: string;
+  rating: string;
+  comment: string;
+}
+
+interface FeedbackFormData {
+  name: string;
+  role: string;
+  rating: string;
+  comment: string;
+}
+
+const defaultFeedbackForm: FeedbackFormData = {
+  name: '',
+  role: '',
+  rating: '',
+  comment: '',
+};
+
 function App() {
   const [user, setUser] = useState<Patient | Doctor | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState<FeedbackFormData>(defaultFeedbackForm);
+  const [feedbackEntries, setFeedbackEntries] = useState<FeedbackEntry[]>([]);
   const [initializing, setInitializing] = useState(true);
 
   // Restore user session on app load
@@ -40,6 +67,16 @@ function App() {
     if (restoredUser) {
       setUser(restoredUser);
     }
+
+    const savedFeedback = localStorage.getItem('homepage_feedback');
+    if (savedFeedback) {
+      try {
+        setFeedbackEntries(JSON.parse(savedFeedback));
+      } catch (error) {
+        console.error('Failed to restore feedback:', error);
+      }
+    }
+
     setInitializing(false);
   }, []);
 
@@ -86,6 +123,34 @@ function App() {
     setAuthMode(mode);
     setShowAuthModal(true);
   };
+
+  const updateFeedbackField = (field: keyof FeedbackFormData, value: string) => {
+    setFeedbackForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFeedbackSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const nextFeedback: FeedbackEntry = {
+      id: crypto.randomUUID(),
+      name: feedbackForm.name.trim(),
+      role: feedbackForm.role,
+      rating: feedbackForm.rating,
+      comment: feedbackForm.comment.trim(),
+    };
+
+    const updatedFeedback = [nextFeedback, ...feedbackEntries].slice(0, 6);
+    setFeedbackEntries(updatedFeedback);
+    localStorage.setItem('homepage_feedback', JSON.stringify(updatedFeedback));
+    setFeedbackForm(defaultFeedbackForm);
+    setShowFeedbackModal(false);
+  };
+
+  const isFeedbackFormValid =
+    feedbackForm.name.trim() &&
+    feedbackForm.role &&
+    feedbackForm.rating &&
+    feedbackForm.comment.trim().length >= 10;
 
   // Show loading spinner while initializing
   if (initializing) {
@@ -421,6 +486,40 @@ function App() {
           </div>
         </div>
 
+        {/* Community Feedback */}
+        {feedbackEntries.length > 0 && (
+          <div className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                  Community Feedback
+                </h2>
+                <p className="text-xl text-gray-600">
+                  Recent thoughts shared by people using the platform locally
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {feedbackEntries.map(feedback => (
+                  <Card key={feedback.id} className="border-0 shadow-lg bg-white">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{feedback.name}</h3>
+                        <p className="text-sm text-gray-500">{feedback.role}</p>
+                      </div>
+                      <div className="flex items-center text-yellow-500">
+                        <Star className="h-4 w-4 fill-current mr-1" />
+                        <span className="font-semibold">{feedback.rating}</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-600 text-sm leading-6">"{feedback.comment}"</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* CTA Section */}
         <div className="py-20 bg-gradient-to-r from-blue-600 to-indigo-600">
           <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
@@ -483,7 +582,15 @@ function App() {
                 <h4 className="font-semibold mb-4">Support</h4>
                 <ul className="space-y-2 text-sm text-gray-400">
                   <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => setShowFeedbackModal(true)}
+                      className="hover:text-white transition-colors"
+                    >
+                      Feedback
+                    </button>
+                  </li>
                   <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
                 </ul>
@@ -505,6 +612,96 @@ function App() {
             </div>
           </div>
         </footer>
+
+        {/* Feedback Modal */}
+        {showFeedbackModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+              <form onSubmit={handleFeedbackSubmit} className="p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Share Feedback</h2>
+                    <p className="text-gray-600 text-sm mt-1">
+                      Answer a few quick questions and your feedback will appear on the homepage.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFeedbackModal(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-200"
+                  >
+                    Ã—
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  <Input
+                    label="Your name"
+                    value={feedbackForm.name}
+                    onChange={(event) => updateFeedbackField('name', event.target.value)}
+                    placeholder="Enter your name"
+                    required
+                  />
+
+                  <Select
+                    label="Who are you?"
+                    value={feedbackForm.role}
+                    onChange={(event) => updateFeedbackField('role', event.target.value)}
+                    options={[
+                      { value: 'Patient', label: 'Patient' },
+                      { value: 'Doctor', label: 'Doctor' },
+                      { value: 'Visitor', label: 'Visitor' },
+                    ]}
+                    required
+                  />
+
+                  <Select
+                    label="How would you rate the platform?"
+                    value={feedbackForm.rating}
+                    onChange={(event) => updateFeedbackField('rating', event.target.value)}
+                    options={[
+                      { value: '5', label: '5 - Excellent' },
+                      { value: '4', label: '4 - Good' },
+                      { value: '3', label: '3 - Average' },
+                      { value: '2', label: '2 - Needs work' },
+                      { value: '1', label: '1 - Poor' },
+                    ]}
+                    required
+                  />
+
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      What should we improve?
+                    </label>
+                    <textarea
+                      value={feedbackForm.comment}
+                      onChange={(event) => updateFeedbackField('comment', event.target.value)}
+                      placeholder="Share your experience or suggestions"
+                      rows={4}
+                      minLength={10}
+                      required
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-sm text-gray-500">Minimum 10 characters.</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-8">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowFeedbackModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={!isFeedbackFormValid}>
+                    Submit Feedback
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Enhanced Auth Modal */}
         {showAuthModal && (
